@@ -1,0 +1,424 @@
+#+startup:overview
+* Bootstrapping
+** Package Management
+Setup `straight.el` for package management.
+#+begin_src emacs-lisp
+  (defvar bootstrap-version)
+  (let ((bootstrap-file
+	 (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+	(bootstrap-version 5))
+    (unless (file-exists-p bootstrap-file)
+      (with-current-buffer
+	  (url-retrieve-synchronously
+	   "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+	   'silent 'inhibit-cookies)
+	(goto-char (point-max))
+	(eval-print-last-sexp)))
+    (load bootstrap-file nil 'nomessage))
+#+end_src
+
+Now we want `straight.el` to be able to use `use-package`
+#+begin_src emacs-lisp
+(straight-use-package 'use-package)
+(setq straight-use-package-by-default t)
+#+end_src
+
+** Change the Defaults
+Why is emacs?
+#+begin_src emacs-lisp
+  (setq-default
+   ad-redefiniton-action 'accept
+   auto-save-list-file-prefix nil
+   cursor-in-non-selected-windows nil
+   fill-column 80
+   gc-cons-threshold (* 8 1024 1024)
+   help-window-select t
+   inhibit-startup-screen t
+   initial-scratch-message ";; Bonjour Tous la Monde!\n\n"
+   x-stretch-cursor t
+   tab-width 4
+   scroll-margin 2
+   select-enable-clipboard t
+   sentence-end-double-space nil
+   show-help-function nil
+   uniquify-buffer-name-style 'forward
+   window-combination-resize t)
+  (blink-cursor-mode 0)
+  (delete-selection-mode 1)
+  (fset 'yes-or-no-p 'y-or-n-p)
+  (global-subword-mode 1)
+  (mouse-avoidance-mode 'exile)
+  (put 'downcase-region 'disabled nil)
+  (put 'upcase-region 'disabled nil)
+  (set-default-coding-systems 'utf-8)
+  (menu-bar-mode -1)
+  (tool-bar-mode -1)
+  (scroll-bar-mode -1)
+#+end_src
+
+We can use our own folder for cache. This is to avoid the inevitable
+cluttering of `.emacs.d`
+#+begin_src emacs-lisp
+  (defconst my/cache-dir
+    (expand-file-name ".cache."))
+
+  (defun my/cache-concat (name)
+    "Return the path of a file in `my/cache-dir`"
+    (let* ((directory (file-name-as-directory my/cache-dir))
+	   (path (convert-standard-filename (concat directory name))))
+      (make-directory (file-name-directory path) t)
+      path))
+#+end_src
+
+Lets apply this concept
+#+begin_src emacs-lisp
+  (with-eval-after-load 'request
+    (setq-default request-storage-directory (my/cache-concat "request/")))
+  (with-eval-after-load 'tramp
+    (setq-default tramp-persistency-file-name (my/cache-concat "tramp.eld")))
+  (with-eval-after-load 'url
+    (setq-default url-configuration-directory (my/cache-concat "url/")))
+#+end_src
+
+When we aren't focused in Emacs, we should let Emacs garbage-collect.
+#+begin_src emacs-lisp
+  (add-function :after after-focus-change-function
+    (defun me/garbage-collect-maybe ()
+      (unless (frame-focus-state)
+	(garbage-collect))))
+#+end_src
+
+** Theme
+#+begin_src emacs-lisp
+  (use-package tao-theme
+	:config
+	(load-theme 'tao-yin t))
+#+end_src
+
+I am also fond of the Doom modeline
+#+begin_src emacs-lisp
+
+  (use-package all-the-icons)
+
+  (use-package doom-modeline
+	:init (doom-modeline-mode 1)
+	:custom ((doom-modeline-height 15)))
+#+end_src
+
+Fonts!
+#+begin_src emacs-lisp
+  (set-frame-font "Fira Code 13" nil t)
+#+end_src
+** Line Numbers
+   #+begin_src emacs-lisp
+	 (column-number-mode)
+	 (defun linumrelative ()
+	   (setq display-line-numbers 'relative))
+	 (add-hook 'prog-mode-hook 'linumrelative)
+	 (remove-hook 'org-mode-hook 'linumrelative)
+	 (remove-hook 'term-mode-hook 'linumrelative)
+#+end_src
+** Configure Org-mode
+   #+begin_src emacs-lisp
+	 (use-package org)
+	 (require 'org-tempo)
+	 (add-hook 'org-mode-hook 'visual-line-mode) 
+   #+end_src
+* Languages
+  Time to configure the syntax-highlighting for the languages.
+** Markdown
+#+begin_src emacs-lisp
+  (use-package markdown-mode
+    :mode ("INSTALL\\'" "CONTRIBUTORS\\'" "LICENSE\\'" "README\\'")
+    :custom
+    (markdown-asymmetric-header t)
+    (markdown-split-window-direction 'right)
+    :config
+    (unbind-key "<M-down>" markdown-mode-map)
+    (unbind-key "<M-up>" markdown-mode-map))
+#+end_src
+** Go-Lang
+   #+begin_src emacs-lisp
+     (use-package go-mode)
+   #+end_src
+** Julia
+   #+begin_src emacs-lisp
+     (use-package julia-mode)
+   #+end_src
+** Clojure
+Clojure is pretty epic
+#+BEGIN_SRC emacs-lisp
+  (use-package cider)
+
+  (use-package clj-refactor)
+
+  (defun my-clojure-mode-hook ()
+      (clj-refactor-mode 1)
+      (yas-minor-mode 1) ; for adding require/use/import statements
+      ;; This choice of keybinding leaves cider-macroexpand-1 unbound
+      (cljr-add-keybindings-with-prefix "C-c C-m"))
+
+  (add-hook 'clojure-mode-hook #'my-clojure-mode-hook)
+#+END_SRC
+** Guile
+GNU's guile is going to be great!
+#+BEGIN_SRC emacs-lisp
+(use-package geiser
+  :config
+  (setq geiser-active-implementations '(guile)))
+#+END_SRC
+** Haskek
+   #+begin_src emacs-lisp
+	 (use-package haskell-mode)
+	 (use-package lsp-haskell)
+   #+end_src
+** Rust-Mode
+Rust is the future IMO.
+
+#+begin_src emacs-lisp
+  (use-package rust-mode)
+#+end_src
+** Python
+Cause my uni wants me to use python ig
+#+begin_src emacs-lisp
+  (use-package python-mode)
+#+end_src
+** Svelte
+   #+begin_src emacs-lisp
+	 (use-package svelte-mode)
+   #+end_src
+** Typescript
+   #+begin_src emacs-lisp
+	 (use-package typescript-mode)
+   #+end_src
+** Proof General
+   #+begin_src emacs-lisp
+	 (use-package proof-general)
+   #+end_src
+* Features
+** Autocomplete
+Cause I am lazy.
+   #+begin_src emacs-lisp
+	 (use-package company
+	   :custom
+	   (company-require-match nil)
+	   (company-minimum-prefix-length 1)
+	   (company-idle-delay 0.2)
+	   (company-tooltip-align-annotation t)
+	   (company-frontends '(company-pseudo-tooltip-frontend
+							company-echo-metadata-frontend))
+	   :commands (company-mode global-company-mode company-complete
+							   company-complete-common company-manual-begin
+							   company-grab-line)
+	   :bind (
+			  :map company-active-map
+			  ("C-n" . company-select-next)
+			  ("C-p" . company-select-previous))
+	   :hook ((prog-mode . company-mode)
+			  (comint-mode . company-mode)))
+
+	 (global-company-mode)
+
+	 (use-package company-quickhelp
+	   :after company
+	   :commands (company-quickhelp-mode)
+	   :init
+	   (company-quickhelp-mode 1)
+	   (use-package pos-tip
+		 :commands (pos-tip-show)))
+
+	 ;; Lisp Company
+	 (use-package slime-company
+	   :after company
+	   :config
+	   (slime-setup '(slime-fancy slime-company))
+	   (define-key company-active-map (kbd "\C-n") 'company-select-next)
+	   (define-key company-active-map (kbd "\C-p") 'company-select-previous)
+	   (define-key company-active-map (kbd "\C-d") 'company-show-doc-buffer)
+	   (define-key company-active-map (kbd "M-.") 'company-show-location))
+
+   #+end_src
+
+For a better autocomplete, one can also use lsp-mode.
+#+BEGIN_SRC emacs-lisp
+  (use-package which-key
+	:config (which-key-mode))
+
+  (use-package lsp-mode :hook ((lsp-mode . lsp-enable-which-key-integration))
+	:config (setq lsp-completion-enable-additional-text-edit nil))
+  ;(use-package lsp-ui)
+  (use-package lsp-java
+	:config
+	(add-hook 'java-mode-hook #'lsp)
+	(setq lsp-java-java-path "/usr/lib/jvm/java-11-openjdk-amd64/bin/java"))
+  (use-package dap-mode
+	:after lsp-mode
+	:config (dap-auto-configure-mode))
+  (lsp-treemacs-sync-mode 1)
+#+END_SRC
+** Unicode Org Bullets
+   Unicode is awesome with stuff like this
+#+BEGIN_SRC emacs-lisp
+(use-package org-bullets
+  :config
+  (add-hook 'org-mode-hook 'org-bullets-mode))
+#+END_SRC
+** Slime
+% That's me :D
+#+begin_src emacs-lisp
+  (use-package slime
+	:config
+	(setq inferior-lisp-program "/usr/bin/sbcl"))
+  (require 'slime-asdf)
+#+end_src
+
+** Paredit
+Parethesis need improving.
+#+begin_src emacs-lisp
+
+	(use-package paredit
+	  :config
+	  (add-hook 'emacs-lisp-mode-hook       #'enable-paredit-mode)
+	  (add-hook 'eval-expression-minibuffer-setup-hook #'enable-paredit-mode)
+	  (add-hook 'ielm-mode-hook             #'enable-paredit-mode)
+	  (add-hook 'lisp-mode-hook             #'enable-paredit-mode)
+	  (add-hook 'lisp-interaction-mode-hook #'enable-paredit-mode)
+	  (add-hook 'scheme-mode-hook           #'enable-paredit-mode)
+	  (add-hook 'clojure-mode-hook          #'enable-paredit-mode)
+	  (add-hook 'slime-repl-mode-hook (lambda () (paredit-mode +1)))
+	  (add-hook 'cider-repl-mode-hook (lambda () (paredit-mode +1))))
+#+end_src
+
+** Git Version Controlling Stuff
+   #+begin_src emacs-lisp
+	 (use-package magit
+		 :init (setq magit-diff-refine-hunk t)
+		 :commands (magit-status)
+		 :bind (("C-x g" . magit-status)))
+
+	   (use-package diff-hl
+		 :hook ((dired-mode . diff-hl-dired-mode)
+				(magit-post-refresh . diff-hl-magit-post-refresh))
+		 :config
+		 (global-diff-hl-mode t))
+   #+end_src
+** Snippets
+  YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAS
+#+BEGIN_SRC emacs-lisp
+  (use-package yasnippet)
+  (yas-global-mode)
+  (use-package yasnippet-snippets)
+  (use-package common-lisp-snippets)
+#+END_SRC
+** Unicode Org Bullets
+   Unicode is awesome with stuff like this
+#+BEGIN_SRC emacs-lisp
+(use-package org-bullets
+  :config
+  (add-hook 'org-mode-hook (lambda () (org-bullets-mode 1))))
+#+END_SRC
+** Get a better M-x and ido
+   #+begin_src emacs-lisp
+
+	 (use-package smex
+	   :config
+	   (global-set-key (kbd "M-x") 'smex)
+	   (global-set-key (kbd "M-X") 'smex-major-mode-commands))
+
+	 (use-package ido-vertical-mode
+	   :config
+	   (setq ido-vertical-define-keys 'C-n-C-p-up-and-down)
+	   (ido-mode 1)
+	   (ido-everywhere t)
+	   (ido-vertical-mode 1))
+   #+end_src
+** Org-Roam
+   Org Roam is like Obsidian or Notion but built for Org-Mode
+   #+begin_src emacs-lisp
+		  (use-package org-roam
+				:ensure t
+				:hook
+				(after-init . org-roam-mode)
+				:custom
+				(org-roam-directory "~/Documents/notes")
+				:bind (:map org-roam-mode-map
+						(("C-c n l" . org-roam)
+						 ("C-c n f" . org-roam-find-file)
+						 ("C-c n g" . org-roam-graph))
+						:map org-mode-map
+						(("C-c n i" . org-roam-insert))
+						(("C-c n I" . org-roam-insert-immediate))))
+	 ;; I decided to add this here cause I'm lazy uwu
+		  (use-package org-ref
+			:config
+			(setq reftex-default-bibliography '("~/Documents/bib/test.bib"))
+			(setq org-ref-default-bibliography '("~/Documents/bib/test.bib")))
+	 (setq org-latex-pdf-process (list "latexmk -shell-escape -bibtex -f -pdf %f"))
+   #+end_src
+** Display line at 80th character
+   #+begin_src emacs-lisp
+   (add-hook 'prog-mode-hook 'display-fill-column-indicator-mode)
+   #+end_src
+** NeoTree
+   #+begin_src emacs-lisp
+	 (use-package neotree
+	   :config
+	   (global-set-key [f8] 'neotree-toggle)
+	   (global-set-key (kbd "C-<f8>") 'neotree-toggle))
+	 (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
+   #+end_src
+** Projectile
+   #+begin_src emacs-lisp
+	 (use-package projectile
+	   :config
+	   (projectile-mode 1)
+	   (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map))
+   #+end_src
+** Highlight
+   #+begin_src emacs-lisp
+	 (use-package highlight-symbol
+	   :hook (prog-mode . highlight-symbol-mode)
+	   :config
+	   (setq highlight-symbol-idle-delay 0.3))
+
+	 (use-package highlight-numbers
+	   :hook (prog-mode . highlight-numbers-mode))
+
+	 (use-package highlight-escape-sequences
+	   :hook (prog-mode . hes-mode))
+
+	 (use-package emojify
+	   :hook (after-init . global-emojify-mode)
+	   :config
+	   (setq emojify-emoji-styles '(unicode)))
+
+	 (use-package hl-todo
+	   :config
+	   (add-to-list 'hl-todo-keyword-faces '("DOING" . "#94bff3"))
+	   (add-to-list 'hl-todo-keyword-faces '("WHY" . "#7cb8bb"))
+	   (global-hl-todo-mode +1))
+   #+end_src
+** Emmet Mode
+   #+begin_src emacs-lisp
+	 (use-package emmet-mode
+	   :hook ((html-mode       . emmet-mode)
+			  (css-mode        . emmet-mode)
+			  (js-mode         . emmet-mode)
+			  (js-jsx-mode     . emmet-mode)
+			  (typescript-mode . emmet-mode)
+			  (web-mode        . emmet-mode))
+	   :config
+	   (setq emmet-insert-flash-time 0.001) ; effectively disabling it
+	   (add-hook 'js-jsx-mode-hook #'(lambda ()
+									   (setq-local emmet-expand-jsx-className? t)))
+	   (add-hook 'web-mode-hook #'(lambda ()
+									(setq-local emmet-expand-jsx-className? t))))
+
+   #+end_src
+** imenu-list
+   #+begin_src emacs-lisp
+	 (use-package imenu-list
+	   :config
+	   (global-set-key (kbd "C-'") #'imenu-list-smart-toggle))
+   #+end_src
+   
